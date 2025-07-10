@@ -203,7 +203,7 @@ int main(int argc, char * argv[]) {
         edm::EventBase
         const & event = ev;
         std::cout << event.bunchCrossing() << '\n';
-        // if leftmostBunchesListPath provided, filter-out all 
+        // if leftmostBunchesListPath provided, filter-out all that arent on the list
         if (leftmostBunchesListPath_ != "" && leftmostBunches_.count(event.bunchCrossing()) == 0)
           continue;
         std::cout << "       " << event.bunchCrossing() << '\n';
