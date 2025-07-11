@@ -58,7 +58,7 @@ int main(int argc, char * argv[]) {
   parser.integerValue("outputEvery") = 10000;
   parser.stringValue("outputFile") = "timingHistograms.root";
   parser.addOption("inputPath", CommandLineParser::kString, "Path to input files", "/eos/cms/tier0/store/express/Run2023C/StreamALCAPPSExpress/ALCARECO/PPSCalMaxTracks-Express-v2/000/367/790/00000/");
-  parser.addOption("leftmostBunchesListPath", CommandLineParser::kString, "Path to file with list of leftmost bunches", "");
+  parser.addOption("pickedBunchesListPath", CommandLineParser::kString, "Path to file with list of leftmost bunches", "");
   parser.addOption("minLS", CommandLineParser::kInteger, "first LumiSection", 1);
   parser.addOption("maxLS", CommandLineParser::kInteger, "last LumiSection", 9999);
   parser.addOption("minimumToT", CommandLineParser::kDouble, "minimum ToT for rechits", -999.0);
@@ -73,7 +73,7 @@ int main(int argc, char * argv[]) {
   double totCut_ = parser.doubleValue("minimumToT");
   std::string outputFile_ = parser.stringValue("outputFile");
   std::string inputfilepath_ = parser.stringValue("inputPath");
-  std::string leftmostBunchesListPath_ = parser.stringValue("leftmostBunchesListPath");
+  std::string pickedBunchesListPath_ = parser.stringValue("pickedBunchesListPath");
   int mode_ = parser.integerValue("mode");
   std::string inputfilelist = "InputFiles.txt";
 
@@ -94,16 +94,16 @@ int main(int argc, char * argv[]) {
   }
   ifs2.close();
 
-  std::set < int > leftmostBunches_;
-  if (leftmostBunchesListPath_ != "") {
-    std::cout << "leftmostBunchesListPath provided -- only those bunches considered\n";
-    std::ifstream ifs3(leftmostBunchesListPath_);
+  std::set < int > pickedBunches_;
+  if (pickedBunchesListPath_ != "") {
+    std::cout << "pickedBunchesListPath provided -- only those bunches considered\n";
+    std::ifstream ifs3(pickedBunchesListPath_);
     int bunchNumber;
     while (ifs3 >> bunchNumber) {
-      leftmostBunches_.insert(bunchNumber);
+      pickedBunches_.insert(bunchNumber);
     }
     ifs3.close();
-    for (auto x: leftmostBunches_) std::cout << x << " ";
+    for (auto x: pickedBunches_) std::cout << x << " ";
     std::cout << '\n';
   }
 
@@ -179,6 +179,7 @@ int main(int argc, char * argv[]) {
   TH2F * dboxantirad56_ = dir.make < TH2F > ("dboxantirad56", "dboxantirad56", 200, 0, 20, 200, -10, 10);
 
   TH1F * ls_ = dir.make < TH1F > ("ls", "ls", 2000, 0, 2000);
+  TH1F * bunchNumbers_ = dir.make<TH1F>("bunchPresence", "Bunch Presence;BX;Presence", 3564, 0.5, 3564.5);
 
   // loop the events
   int ievt = 0;
@@ -202,11 +203,12 @@ int main(int argc, char * argv[]) {
       for (ev.toBegin(); !ev.atEnd(); ++ev, ++ievt) {
         edm::EventBase
         const & event = ev;
-        std::cout << event.bunchCrossing() << '\n';
-        // if leftmostBunchesListPath provided, filter-out all that arent on the list
-        if (leftmostBunchesListPath_ != "" && leftmostBunches_.count(event.bunchCrossing()) == 0)
+
+        // if pickedBunchesListPath provided, filter-out all that arent on the list
+        if (pickedBunchesListPath_ != "" && pickedBunches_.count(event.bunchCrossing()) == 0)
           continue;
-        std::cout << "       " << event.bunchCrossing() << '\n';
+        bunchNumbers_->SetBinContent(event.bunchCrossing(), 1);
+        // std::cout << "picking:  " << event.bunchCrossing() << '\n';
 
         // break loop if maximal number of events is reached
         if (maxEvents_ > 0 ? ievt + 1 > maxEvents_ : false)
