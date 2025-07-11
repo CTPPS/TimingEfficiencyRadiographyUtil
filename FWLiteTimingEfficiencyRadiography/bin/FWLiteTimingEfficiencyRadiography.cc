@@ -12,6 +12,9 @@
 #include <TSystem.h>
 #include "TString.h"
 
+#include <boost/algorithm/string.hpp>
+#include <boost/lexical_cast.hpp>
+
 #include "DataFormats/FWLite/interface/Event.h"
 #include "DataFormats/Common/interface/Handle.h"
 #include "FWCore/FWLite/interface/FWLiteEnabler.h"
@@ -58,7 +61,7 @@ int main(int argc, char * argv[]) {
   parser.integerValue("outputEvery") = 10000;
   parser.stringValue("outputFile") = "timingHistograms.root";
   parser.addOption("inputPath", CommandLineParser::kString, "Path to input files", "/eos/cms/tier0/store/express/Run2023C/StreamALCAPPSExpress/ALCARECO/PPSCalMaxTracks-Express-v2/000/367/790/00000/");
-  parser.addOption("pickedBunchesListPath", CommandLineParser::kString, "Path to file with list of leftmost bunches", "");
+  parser.addOption("pickedBunchesCSV", CommandLineParser::kString, "Comma-separated list of picked bunches", "");
   parser.addOption("minLS", CommandLineParser::kInteger, "first LumiSection", 1);
   parser.addOption("maxLS", CommandLineParser::kInteger, "last LumiSection", 9999);
   parser.addOption("minimumToT", CommandLineParser::kDouble, "minimum ToT for rechits", -999.0);
@@ -73,7 +76,7 @@ int main(int argc, char * argv[]) {
   double totCut_ = parser.doubleValue("minimumToT");
   std::string outputFile_ = parser.stringValue("outputFile");
   std::string inputfilepath_ = parser.stringValue("inputPath");
-  std::string pickedBunchesListPath_ = parser.stringValue("pickedBunchesListPath");
+  std::string pickedBunchesCSV = parser.stringValue("pickedBunchesCSV");
   int mode_ = parser.integerValue("mode");
   std::string inputfilelist = "InputFiles.txt";
 
@@ -94,16 +97,21 @@ int main(int argc, char * argv[]) {
   }
   ifs2.close();
 
-  std::set < int > pickedBunches_;
-  if (pickedBunchesListPath_ != "") {
-    std::cout << "pickedBunchesListPath provided -- only those bunches considered\n";
-    std::ifstream ifs3(pickedBunchesListPath_);
-    int bunchNumber;
-    while (ifs3 >> bunchNumber) {
-      pickedBunches_.insert(bunchNumber);
+  std::set < int > pickedBunches;
+  if (pickedBunchesCSV != "") {
+    std::cout << "pickedBunchesCSV provided -- only those bunches considered\n";
+    std::vector<std::string> tokens;
+    boost::split(tokens, pickedBunchesCSV, boost::is_any_of(","));
+
+    for (const std::string& token : tokens) {
+      try {
+        int bunch = boost::lexical_cast<int>(boost::algorithm::trim_copy(token));
+        pickedBunches.insert(bunch);
+      } catch (const boost::bad_lexical_cast& e) {
+        std::cerr << "Invalid bunch number: '" << token << "'\n";
+      }
     }
-    ifs3.close();
-    for (auto x: pickedBunches_) std::cout << x << " ";
+    for (auto x: pickedBunches) std::cout << x << " ";
     std::cout << '\n';
   }
 
@@ -179,6 +187,8 @@ int main(int argc, char * argv[]) {
   TH2F * dboxantirad56_ = dir.make < TH2F > ("dboxantirad56", "dboxantirad56", 200, 0, 20, 200, -10, 10);
 
   TH1F * ls_ = dir.make < TH1F > ("ls", "ls", 2000, 0, 2000);
+
+  // Considered bunches
   TH1F * bunchNumbers_ = dir.make<TH1F>("bunchPresence", "Bunch Presence;BX;Presence", 3564, 0.5, 3564.5);
 
   // loop the events
@@ -204,8 +214,8 @@ int main(int argc, char * argv[]) {
         edm::EventBase
         const & event = ev;
 
-        // if pickedBunchesListPath provided, filter-out all that arent on the list
-        if (pickedBunchesListPath_ != "" && pickedBunches_.count(event.bunchCrossing()) == 0)
+        // if pickedBunchesCSV provided, filter-out all that arent on the list
+        if (pickedBunchesCSV != "" && pickedBunches.count(event.bunchCrossing()) == 0)
           continue;
         bunchNumbers_->SetBinContent(event.bunchCrossing(), 1);
         // std::cout << "picking:  " << event.bunchCrossing() << '\n';
