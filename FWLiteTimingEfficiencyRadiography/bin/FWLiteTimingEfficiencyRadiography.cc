@@ -1,7 +1,5 @@
-#include <memory>
 #include <string>
 #include <vector>
-#include <sstream>
 #include <fstream>
 #include <iostream>
 
@@ -10,7 +8,6 @@
 #include <TROOT.h>
 #include <TFile.h>
 #include <TSystem.h>
-#include "TString.h"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
@@ -19,21 +16,14 @@
 #include "DataFormats/Common/interface/Handle.h"
 #include "FWCore/FWLite/interface/FWLiteEnabler.h"
 
-#include "DataFormats/VertexReco/interface/Vertex.h"
 #include "DataFormats/MuonReco/interface/Muon.h"
-#include "DataFormats/PatCandidates/interface/Muon.h"
-#include "DataFormats/CTPPSDetId/interface/CTPPSDetId.h"
 #include "DataFormats/CTPPSDetId/interface/CTPPSDiamondDetId.h"
-#include "DataFormats/CTPPSDetId/interface/CTPPSPixelDetId.h"
 #include "DataFormats/CTPPSReco/interface/CTPPSLocalTrackLite.h"
 #include "DataFormats/Common/interface/DetSet.h"
 #include "DataFormats/Common/interface/DetSetVector.h"
-#include "DataFormats/CTPPSReco/interface/CTPPSTimingRecHit.h"
 #include "DataFormats/CTPPSReco/interface/CTPPSDiamondRecHit.h"
-#include "DataFormats/CTPPSReco/interface/CTPPSPixelRecHit.h"
 #include "PhysicsTools/FWLite/interface/TFileService.h"
 #include "PhysicsTools/FWLite/interface/CommandLineParser.h"
-#include "PhysicsTools/FWLite/interface/VariableMapCont.h"
 
 int main(int argc, char * argv[]) {
   // define what muon you are using; this is necessary as FWLite is not
@@ -100,14 +90,14 @@ int main(int argc, char * argv[]) {
   std::set < int > pickedBunches;
   if (pickedBunchesCSV != "") {
     std::cout << "pickedBunchesCSV provided -- only those bunches considered\n";
-    std::vector<std::string> tokens;
+    std::vector < std::string > tokens;
     boost::split(tokens, pickedBunchesCSV, boost::is_any_of(","));
 
-    for (const std::string& token : tokens) {
+    for (const std::string & token: tokens) {
       try {
-        int bunch = boost::lexical_cast<int>(boost::algorithm::trim_copy(token));
+        int bunch = boost::lexical_cast < int > (boost::algorithm::trim_copy(token));
         pickedBunches.insert(bunch);
-      } catch (const boost::bad_lexical_cast& e) {
+      } catch (const boost::bad_lexical_cast & e) {
         std::cerr << "Invalid bunch number: '" << token << "'\n";
       }
     }
@@ -189,7 +179,7 @@ int main(int argc, char * argv[]) {
   TH1F * ls_ = dir.make < TH1F > ("ls", "ls", 2000, 0, 2000);
 
   // Considered bunches
-  TH1F * bunchNumbers_ = dir.make<TH1F>("bunchPresence", "Bunch Presence;BX;Presence", 3564, 0.5, 3564.5);
+  TH1F * bunchNumbers_ = dir.make < TH1F > ("bunchPresence", "Bunch Presence;BX;Presence", 3564, 0.5, 3564.5);
 
   // loop the events
   int ievt = 0;
@@ -217,7 +207,7 @@ int main(int argc, char * argv[]) {
         // if pickedBunchesCSV provided, filter-out all that arent on the list
         if (pickedBunchesCSV != "" && pickedBunches.count(event.bunchCrossing()) == 0)
           continue;
-        bunchNumbers_->SetBinContent(event.bunchCrossing(), 1);
+        bunchNumbers_ -> SetBinContent(event.bunchCrossing(), 1);
         // std::cout << "picking:  " << event.bunchCrossing() << '\n';
 
         // break loop if maximal number of events is reached
