@@ -31,7 +31,7 @@ scram b
 ```
 
 ``` bash
-cd FWLiteTimingEfficiencyRadiography/FWLiteTimingEfficiencyRadiography/bin
+cd TimingEfficiencyRadiographyUtil/TimingEfficiencyRadiographyUtil/bin
 ```
 
 ### Step 4. gather the filepaths of the rootfiles as csv string:
