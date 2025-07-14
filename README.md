@@ -24,7 +24,7 @@ or instead if you want to change something:
 git clone git@github.com:wisniewskij/FWLiteTimingEfficiencyRadiography.git
 ```
 
-Step 3. compile the project:
+### Step 3. compile the project:
 
 ``` bash
 scram b
