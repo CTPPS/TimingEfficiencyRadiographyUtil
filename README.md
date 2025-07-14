@@ -1,4 +1,4 @@
-# FWLiteTimingEfficiencyRadiography
+# TimingEfficiencyRadiographyUtil
 
 Project based on: https://github.com/jjhollar/PPSRun3Utils
 
