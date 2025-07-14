@@ -50,7 +50,7 @@ int main(int argc, char * argv[]) {
   parser.integerValue("maxEvents") = 120000000;
   parser.integerValue("outputEvery") = 10000;
   parser.stringValue("outputFile") = "timingHistograms.root";
-  parser.addOption("inputPath", CommandLineParser::kString, "Path to input files", "/eos/cms/tier0/store/express/Run2023C/StreamALCAPPSExpress/ALCARECO/PPSCalMaxTracks-Express-v2/000/367/790/00000/");
+  parser.addOption("inputPathsCSV", CommandLineParser::kString, "Comma-separated list of input root files", "");
   parser.addOption("pickedBunchesCSV", CommandLineParser::kString, "Comma-separated list of picked bunches", "");
   parser.addOption("minLS", CommandLineParser::kInteger, "first LumiSection", 1);
   parser.addOption("maxLS", CommandLineParser::kInteger, "last LumiSection", 9999);
@@ -65,27 +65,21 @@ int main(int argc, char * argv[]) {
   int maxLS_ = parser.integerValue("maxLS");
   double totCut_ = parser.doubleValue("minimumToT");
   std::string outputFile_ = parser.stringValue("outputFile");
-  std::string inputfilepath_ = parser.stringValue("inputPath");
+  std::string inputPathsCSV = parser.stringValue("inputPathsCSV");
   std::string pickedBunchesCSV = parser.stringValue("pickedBunchesCSV");
   int mode_ = parser.integerValue("mode");
-  std::string inputfilelist = "InputFiles.txt";
 
   // AOD input files
   std::vector < std::string > inFiles_;
-  std::ifstream ifs2(inputfilelist);
 
-  std::string filename;
-  //  std::string xrootdprefix = "root://cms-xrd-global.cern.ch/";
-  std::string xrootdprefix = "";
-  xrootdprefix = inputfilepath_;
-
-  std::string fullfilename;
-
-  while (getline(ifs2, filename)) {
-    fullfilename = xrootdprefix + filename;
-    inFiles_.push_back(fullfilename);
+  {
+    std::vector < std::string > tokens;
+    boost::split(tokens, inputPathsCSV, boost::is_any_of(","));
+    for (const std::string & token: tokens) {
+      inFiles_.push_back(boost::algorithm::trim_copy(token));
+      // std::cout << inFiles_.back() << '\n';
+    }
   }
-  ifs2.close();
 
   std::set < int > pickedBunches;
   if (pickedBunchesCSV != "") {
@@ -207,7 +201,7 @@ int main(int argc, char * argv[]) {
         // if pickedBunchesCSV provided, filter-out all that arent on the list
         if (pickedBunchesCSV != "" && pickedBunches.count(event.bunchCrossing()) == 0)
           continue;
-        bunchNumbers_ -> SetBinContent(event.bunchCrossing(), 1);
+        bunchNumbers_ -> Fill(event.bunchCrossing());
         // std::cout << "picking:  " << event.bunchCrossing() << '\n';
 
         // break loop if maximal number of events is reached
