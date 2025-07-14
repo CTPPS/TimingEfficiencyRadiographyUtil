@@ -17,11 +17,11 @@ cmsenv
 
 Either if you don't want to commit any changes:
 ``` bash
-git clone https://github.com/wisniewskij/FWLiteTimingEfficiencyRadiography.git
+git clone https://github.com/wisniewskij/TimingEfficiencyRadiographyUtil.git
 ```
 or instead if you want to change something:
 ``` bash
-git clone git@github.com:wisniewskij/FWLiteTimingEfficiencyRadiography.git
+git clone git@github.com:wisniewskij/TimingEfficiencyRadiographyUtil.git
 ```
 
 ### Step 3. compile the project:
