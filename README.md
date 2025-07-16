@@ -17,12 +17,19 @@ cmsenv
 
 Either if you don't want to commit any changes:
 ``` bash
-git clone https://github.com/wisniewskij/TimingEfficiencyRadiographyUtil.git
+git clone https://github.com/CTPPS/TimingEfficiencyRadiographyUtil.git
 ```
-or instead if you want to change something:
+or instead if you want to change something use the SSH method: 
 ``` bash
-git clone git@github.com:wisniewskij/TimingEfficiencyRadiographyUtil.git
+git clone git@github.com:CTPPS/TimingEfficiencyRadiographyUtil.git
 ```
+
+> ⚠️ To use the SSH method, you must:
+>
+> * Have **write permissions** to the repository.
+> * Have an **SSH key configured** on your machine and added to your GitHub account.
+>
+> See GitHub’s [SSH setup guide](https://docs.github.com/en/authentication/connecting-to-github-with-ssh) for help.
 
 ### Step 3. compile the project:
 
@@ -34,7 +41,7 @@ scram b
 cd TimingEfficiencyRadiographyUtil/TimingEfficiencyRadiographyUtil/bin
 ```
 
-### Step 4. gather the filepaths of the rootfiles as csv string:
+### Step 4. gather the filepaths of the ROOT files as csv string:
 ``` bash
 find /eos/cms/store/express/Run2025C/StreamALCAPPSExpress/ALCARECO/PPSCalMaxTracks-Express-v1/000/392/959/00000 -type f -print0 | xargs -0 realpath | paste -sd, > InputFiles.txt
 ```
