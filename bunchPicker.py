@@ -1,77 +1,54 @@
-#!/usr/bin/env python
-
-from omsapi import OMSAPI
 import requests
-from dotenv import load_dotenv
+from pathlib import Path
+from datetime import datetime
+import sys
+import json
 
-load_dotenv()
-
-
-def get_injection_scheme_name(run_number):
-
-    omsapi = OMSAPI("https://cmsoms.cern.ch/agg/api", "v1", cert_verify=False)
-    omsapi.auth_oidc(os.getenv("OMSAPI_CLIENT_ID"), os.getenv("OMSAPI_CLIENT_SECRET"))
-
-    q = omsapi.query("runs")
-    q.verbose = False
-    q.filter("run_number", run_number)
-    q.attrs(["fill_number"])
-
-    response = q.data()
-    data = response.json().get("data", [])
-
-    if not data:
-        print(f"No run found or no fill_number available for run_number {run_number}.")
-        return None
-    else:
-        fill_number = data[0]["attributes"].get("fill_number")
-        if fill_number is None:
-            print("Run found, but no fill_number present.")
-            return None
-        else:
-            print(f"Fill number: {fill_number}")
-
-            lhc = omsapi.query("diplogger/dip/acc/LHC/RunControl/RunConfiguration")
-            lhc.verbose = False
-            lhc.filter("fill_no", fill_number)
-            lhc.attrs(["fill_no", "active_injection_scheme"])
-
-            response = lhc.data()
-            data = response.json().get("data", [])
-
-            if not data:
-                print(
-                    f"No fill found or injection scheme available for fill_number {fill_number}."
-                )
-                return None
-            else:
-                injection_scheme = data[0]["attributes"].get("active_injection_scheme")
-                if injection_scheme is None:
-                    print("Fill found, but no injection_scheme present.")
-                    return None
-                else:
-                    print(f"Injection scheme: {injection_scheme}")
-                    return injection_scheme
+API_BASE = "https://gitlab.cern.ch/api/v4"
+PROJECT = "lhc-injection-scheme%2Finjection-schemes"
+BRANCH = "master"
 
 
-def get_injection_scheme(injection_scheme_name):
-    url = f"https://gitlab.cern.ch/lhc-injection-scheme/injection-schemes/raw/master/{injection_scheme_name}.json"
+def list_all_files():
+    json_files = []
+    page = 1
+    per_page = 100
+
+    while True:
+        url = f"{API_BASE}/projects/{PROJECT}/repository/tree"
+        params = {"ref": BRANCH, "recursive": True, "per_page": per_page, "page": page}
+
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+
+        items = response.json()
+        if not items:
+            break
+
+        json_files.extend(
+            f["path"]
+            for f in items
+            if f["type"] == "blob" and f["path"].endswith(".json")
+        )
+
+        page += 1
+
+    return json_files
+
+
+def get_injection_scheme(
+    injection_scheme_name,
+):  # filenames with extensions (e.g. file.json)
+    url = f"https://gitlab.cern.ch/lhc-injection-scheme/injection-schemes/raw/master/{injection_scheme_name}"
     response = requests.get(url)
     data = response.json()
     return data
 
 
-#  SHOULD TAKE THE RUN NUMBER AND THEN IF ITS OK THEN - FIND ITS FILLING SCHEME USING OMS API AND IF NOT PRESENT IN FOLDER
-#  (sth like /eos/cms/store/group/dpg_cpps/……)  CALCULATE ALL THE USED
-#  BUNCH NUMBERS (PUT IT IN A SINGLE JSON PER FILLING SCHEME, IT SHOULD BE DIVIDED INTO CATEGORIES)
-
-import sys
-import json
-import os
-
-
 def generate_leftmost_bunches(injection_scheme_name):
     data = get_injection_scheme(injection_scheme_name=injection_scheme_name)
+    if "collsIP1/5" not in data.keys() or not data["collsIP1/5"]:
+        return []
     bx = list(
         map(lambda x: (x - 1) // 10 + 1, data["collsIP1/5"])
     )  # convert from rf bucket to CMS count
@@ -79,30 +56,96 @@ def generate_leftmost_bunches(injection_scheme_name):
     return leftmost_bx
 
 
+def get_newest_update_timestamp(directory):
+    newest = None
+
+    for file in Path(directory).iterdir():
+        try:
+            with file.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+            update_date = data.get("update_date")
+            if update_date:
+                dt = datetime.fromisoformat(update_date.rstrip("Z"))
+                if newest is None or dt > newest:
+                    newest = dt
+        except (json.JSONDecodeError, ValueError):
+            continue
+
+    return newest.isoformat() + "Z" if newest else None
+
+
+def which_files_recently_updated(since_update_iso_time):
+    changed_files = set()
+    page = 1
+
+    while True:
+        url = f"{API_BASE}/projects/{PROJECT}/repository/commits"
+        params = {
+            "ref_name": BRANCH,
+            "since": since_update_iso_time,
+            "per_page": 100,
+            "page": page,
+        }
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        commits = response.json()
+
+        if not commits:
+            break
+
+        for commit in commits:
+            sha = commit["id"]
+            diff_url = f"{API_BASE}/projects/{PROJECT}/repository/commits/{sha}/diff"
+            diff_response = requests.get(diff_url)
+            diff_response.raise_for_status()
+            diffs = diff_response.json()
+
+            for d in diffs:
+                path = d.get("new_path")
+                if path and path.endswith(".json"):
+                    changed_files.add(path)
+
+        page += 1
+
+    return changed_files
+
+
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python bunch_picker.py <inj_schemes_directory> <run_number>")
+    if len(sys.argv) != 2:
+        print("Usage: python bunch_picker.py <injection_scheme_directory>")
         sys.exit(1)
 
-    inj_schemes_directory = sys.argv[1]
-    run_number = sys.argv[2]
+    injection_scheme_directory = sys.argv[1]
 
-    injection_scheme_name = get_injection_scheme_name(run_number=run_number)
+    injection_scheme_names = list_all_files()
 
-    file_name = f"{injection_scheme_name}.json"
-    file_path = os.path.join(inj_schemes_directory, file_name)
+    newest_iso_timestamp = get_newest_update_timestamp(injection_scheme_directory)
+    recently_updated_injection_schemes = which_files_recently_updated(
+        newest_iso_timestamp
+    )
 
-    if os.path.exists(file_path):
-        with open(file_path, "r", encoding="utf-8") as f:
-            try:
-                data = json.load(f)
-            except json.JSONDecodeError:
-                data = {}
-    else:
-        data = {}
+    for injection_scheme_name in injection_scheme_names:
+        file_path = (
+            Path(injection_scheme_directory) / f"bunches_{injection_scheme_name}"
+        )
+        if not file_path.exists():
+            data = {}
+        else:
+            with open(file_path, "r", encoding="utf-8") as f:
+                try:
+                    data = json.load(f)
+                except json.JSONDecodeError:
+                    data = {}
 
-    if "leftmost" not in data:
-        data["leftmost"] = generate_leftmost_bunches(injection_scheme_name)
-
-    with open(file_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4)
+        missing_keys = any(k not in data for k in ("leftmost", "update_date"))
+        outdated = (
+            False
+            if missing_keys
+            else injection_scheme_name in recently_updated_injection_schemes
+        )
+        if missing_keys or outdated:
+            print(f"Updating {injection_scheme_name}...")
+            data["leftmost"] = generate_leftmost_bunches(injection_scheme_name)
+            data["update_date"] = datetime.utcnow().isoformat() + "Z"
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=4)
