@@ -1,7 +1,8 @@
 import requests
+import argparse
+import logging
 from pathlib import Path
 from datetime import datetime
-import sys
 import json
 
 API_BASE = "https://gitlab.cern.ch/api/v4"
@@ -111,11 +112,29 @@ def which_files_recently_updated(since_update_iso_time):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python bunch_picker.py <injection_scheme_directory>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser()
 
-    injection_scheme_directory = sys.argv[1]
+    parser.add_argument(
+        "--injection_scheme_dir",
+        dest="injection_scheme_directory",
+        type=str,
+        help="Path to output directory for parsed injection schemes.",
+        required=True,
+    )
+
+    args = parser.parse_args()
+    injection_scheme_directory = args.injection_scheme_directory
+
+    # create the basic streamer logger
+    stream_handler = logging.StreamHandler()
+    stream_handler.setLevel(logging.INFO)
+    stream_handler.setFormatter(logging.Formatter(f"[%(filename)s]: %(message)s"))
+
+    logging.basicConfig(level=logging.INFO)
+    log = logging.getLogger()
+    log.addHandler(stream_handler)
+    # remove default logger
+    log.handlers.pop(0)
 
     injection_scheme_names = list_all_files()
 
@@ -144,7 +163,7 @@ if __name__ == "__main__":
             else injection_scheme_name in recently_updated_injection_schemes
         )
         if missing_keys or outdated:
-            print(f"Updating {injection_scheme_name}...")
+            log.info(f"Updating {injection_scheme_name}...")
             data["leftmost"] = generate_leftmost_bunches(injection_scheme_name)
             data["update_date"] = datetime.utcnow().isoformat() + "Z"
             with open(file_path, "w", encoding="utf-8") as f:
